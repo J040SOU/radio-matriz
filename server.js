@@ -10,6 +10,10 @@ const path = require('path');
 app.use(express.static(path.join(__dirname, 'public')));
 
 
+const streamRoute = require('./routes/streamRoute');
+app.use('/api/stream', streamRoute); // agora /api/stream está disponível
+
+
 // Usa a variável de ambiente MONGO_URL vinda do docker-compose.yml
 const mongoUrl = process.env.MONGO_URL || 'mongodb://localhost:27017/radio';
 
