@@ -1,19 +1,19 @@
 // streamManager.js
-const fs        = require('fs');
-const path      = require('path');
-const { spawn } = require('child_process');
+const fs           = require('fs');
+const path         = require('path');
 const EventEmitter = require('events');
-const Playlist  = require('./models/PlaylistModel');
-const Interval  = require('./models/IntervalModel');
+const Playlist     = require('./models/PlaylistModel');
+const Interval     = require('./models/IntervalModel');
 
 class StreamManager extends EventEmitter {
   constructor() {
     super();
-    this.clients   = new Set();
-    this.playlist  = [];
-    this.intervals = [];
-    this.index     = 0;
-    this.playing   = false;
+    this.clients     = new Set();
+    this.playlist    = [];
+    this.intervals   = [];
+    this.index       = 0;
+    this.playing     = false;
+    this._timer      = null;
   }
 
   async loadData() {
@@ -21,96 +21,57 @@ class StreamManager extends EventEmitter {
     this.intervals = await Interval.find({ active: true }).sort({ orderAfter: 1 });
   }
 
-  addClient(res) {
+  async addClient(res) {
     this.clients.add(res);
-    if (!this.playing) this.start();
+    if (!this.playing) {
+      await this.loadData();
+      this._startCycle();
+    }
   }
 
   removeClient(res) {
     this.clients.delete(res);
+    if (this.clients.size === 0) this._stopCycle();
   }
 
-  async start() {
-    if (this.playing) return;
+  async _startCycle() {
     this.playing = true;
-    await this.loadData();
-    this._runLoop();
+    this._cycle(); 
   }
 
-  stop() {
+  _stopCycle() {
     this.playing = false;
+    clearTimeout(this._timer);
   }
 
-  async _runLoop() {
-    while (this.playing) {
-      // Se não há clientes, aguarde um pouco
-      if (this.clients.size === 0) {
-        await this._sleep(500);
-        continue;
-      }
+  _cycle() {
+    if (!this.playing) return;
 
-      // 1) Toca a faixa atual
-      const track = this.playlist[this.index];
-      // console.log(`▶️  [PLAY] ordem ${track.ordem} → ${track.nome}`);
-      this.emit('play', { ordem: track.ordem, nome: track.nome });
-      await this._streamFile(path.join(__dirname, 'musicas', `${track.nome}.mp3`));
+    // 1) dispara evento de play
+    const track = this.playlist[this.index];
+    this.emit('play', { ordem: track.ordem, nome: track.nome });
 
-      // 2) Insere silêncio se houver intervalo
+    // 2) inicia pipe do arquivo para clientes
+    const file = path.join(__dirname, 'musicas', `${track.nome}.mp3`);
+    const stream = fs.createReadStream(file);
+    stream.on('data', chunk => this.clients.forEach(r => r.write(chunk)));
+    // Quando o arquivo terminar, não esperamos 'end' para o próximo—usamos timer.
+
+    // 3) programe próximo passo após durationSec
+    const dur = track.durationSec * 1000;
+    this._timer = setTimeout(() => {
+      // dispara intervalo se existir
       const iv = this.intervals.find(i => i.orderAfter === track.ordem);
       if (iv) {
-        // console.log(`⏸️  [INTERVAL] ordem ${iv.orderAfter} → ${iv.durationSec}s`);
         this.emit('interval', { ordem: iv.orderAfter, durationSec: iv.durationSec });
-        await this._streamSilence(iv.durationSec);
+        // silencia: não manda bytes no período do intervalo
       }
-
-      // 3) Próxima faixa
+      // avança índice
       this.index = (this.index + 1) % this.playlist.length;
-    }
-    // console.log('🔴  Streaming parado');
-  }
-
-  _streamFile(filePath) {
-    return new Promise(resolve => {
-      const stream = fs.createReadStream(filePath);
-      stream.on('data', chunk => {
-        for (const res of this.clients) res.write(chunk);
-      });
-      stream.on('end', () => resolve());
-      stream.on('error', err => {
-        // console.error('❌  Erro no stream de arquivo:', err.message);
-        resolve();
-      });
-    });
-  }
-
-  _streamSilence(seconds) {
-    return new Promise(resolve => {
-      // Chama ffmpeg para gerar silêncio exato
-      const ff = spawn('ffmpeg', [
-        '-loglevel', 'quiet',             // <— silencia as mensagens de log
-        '-f', 'lavfi',
-        '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
-        '-t', seconds.toString(),
-        '-f', 'mp3',
-        '-'  // saída para stdout
-      ], { stdio: ['ignore', 'pipe', 'inherit'] });
-
-      ff.stdout.on('data', chunk => {
-        for (const res of this.clients) res.write(chunk);
-      });
-      // Aguarda o ffmpeg terminar
-      ff.on('close', code => {
-        resolve();
-      });
-      ff.on('error', err => {
-        // console.error('❌  Erro no ffmpeg:', err.message);
-        resolve();
-      });
-    });
-  }
-
-  _sleep(ms) {
-    return new Promise(res => setTimeout(res, ms));
+      // ciclo seguinte após intervalo
+      const pause = iv ? iv.durationSec * 1000 : 0;
+      this._timer = setTimeout(() => this._cycle(), pause);
+    }, dur);
   }
 }
 

@@ -3,7 +3,7 @@ const express       = require('express');
 const streamManager = require('../streamManager');
 const router        = express.Router();
 
-router.get('/events', (req, res) => {
+router.get('/', (req, res) => {
   // cabeçalhos SSE
   res.set({
     'Content-Type':  'text/event-stream',

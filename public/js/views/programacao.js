@@ -1,4 +1,3 @@
-// public/js/views/programacao.js
 import { api } from '../services/api.js';
 
 export async function renderProgramacao() {
@@ -17,7 +16,6 @@ export async function renderProgramacao() {
     </table>
   `;
 
-  // Busca músicas e intervalos simultaneamente
   const [musicas, intervals] = await Promise.all([
     api.getPlaylist(),
     api.getIntervals()
@@ -26,18 +24,17 @@ export async function renderProgramacao() {
   const tbody = document.getElementById('progBody');
   tbody.innerHTML = '';
 
-  // Monta a programação com músicas e intervalos intercalados
   musicas.forEach(m => {
-    // Linha da música: descrição nome, duração em branco
+    // música
     const trMusic = document.createElement('tr');
     trMusic.innerHTML = `
       <td>${m.ordem}</td>
       <td>${m.nome}</td>
-      <td></td>
+      <td>${m.durationSec}</td>
     `;
     tbody.appendChild(trMusic);
 
-    // Se houver intervalo após esta música, cria linha de intervalo
+    // intervalo
     const iv = intervals.find(i => i.orderAfter === m.ordem);
     if (iv) {
       const trIv = document.createElement('tr');

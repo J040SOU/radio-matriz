@@ -2,20 +2,20 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
-  <title>Rádio Web</title>
+  <title>Rádio Matriz</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
 <body>
   <nav>
     <a href="#home">🏠 Início</a>
-    <a href="#playlist">🎵 Ouvir</a>
     <a href="#adminPlaylist">✏️ Músicas</a>
     <a href="#adminIntervals">📋 Intervalos</a>
-    <a href="#programacao">🗓 Programação</a>  <!-- novo -->
+    <a href="#programacao">🗓 Programação</a>
   </nav>
-  
+
   <main id="app"></main>
 
-  <script src="js/app.js" type="module"></script>
+  <!-- Só carrega este script, que importa o router e views -->
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>

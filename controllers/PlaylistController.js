@@ -1,3 +1,4 @@
+// controllers/PlaylistController.js
 const Playlist = require('../models/PlaylistModel');
 
 // 1) Listar todas as músicas
@@ -9,8 +10,8 @@ async function list(req, res) {
 // 2) Criar nova música
 async function create(req, res) {
   try {
-    const { nome, ordem } = req.body;
-    const musica = new Playlist({ nome, ordem });
+    const { nome, ordem, durationSec } = req.body;
+    const musica = new Playlist({ nome, ordem, durationSec });
     await musica.save();
     res.status(201).json(musica);
   } catch (err) {
@@ -22,10 +23,10 @@ async function create(req, res) {
 async function update(req, res) {
   try {
     const { id } = req.params;
-    const { nome, ordem } = req.body;
+    const { nome, ordem, durationSec } = req.body;
     const musica = await Playlist.findByIdAndUpdate(
       id,
-      { nome, ordem },
+      { nome, ordem, durationSec },
       { new: true, runValidators: true }
     );
     if (!musica) return res.status(404).json({ erro: 'Não encontrado' });
@@ -41,7 +42,7 @@ async function remove(req, res) {
     const { id } = req.params;
     const musica = await Playlist.findByIdAndDelete(id);
     if (!musica) return res.status(404).json({ erro: 'Não encontrado' });
-    res.json({ mensagem: 'Excluído com sucesso' });
+    res.status(204).end();
   } catch (err) {
     res.status(400).json({ erro: err.message });
   }
